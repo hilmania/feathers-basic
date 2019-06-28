@@ -1,4 +1,5 @@
 const feathers = require('@feathersjs/feathers');
+const { BadRequest } = require('@feathersjs/errors');
 
 class Messages {
 	constructor() {
@@ -50,6 +51,24 @@ class Messages {
 
 const app = feathers();
 
+const validate = async context => {
+	const { data } = context;
+
+	if (!data.text) {
+		throw new BadRequest('Message text must exist');
+	}
+	
+	if(typeof data.text != 'string' || data.text.trim() === '') {
+		throw new BadRequest('Message text is invalid');
+	}
+
+	context.data = {
+		text: data.text.toString()
+	}
+
+	return context;
+};
+
 app.use('todos', {
 	async get(name) {
 		return {
@@ -75,6 +94,37 @@ async function processMessages() {
 
 	app.service('messages').on('removed', message => {
 		console.log('Deleted message', message);
+	});
+
+	app.service('messages').hooks({
+		before: {
+			create (context) {
+				context.data.createdAt = new Date();
+
+				return context;
+			}
+		}
+	});
+
+	const setTimestamp = name => {
+		return async context => {
+			context.data[name]  = new Date();
+
+			return context;
+		}
+	}
+
+	app.service('messages').hooks({
+		before: {
+			create: validate,
+			update: validate,
+			patch: validate,
+			create: setTimestamp('createdAt'),
+			update: setTimestamp('updatedAt')
+		},
+		error: async context => {
+			console.error(`Error in '${context.path}' service method '${context.method}'`, context.error.stack);
+		}
 	});
 
 	await app.service('messages').create({
