@@ -1,4 +1,5 @@
 const feathers = require('@feathersjs/feathers');
+const express = require('@feathersjs/express');
 const { BadRequest } = require('@feathersjs/errors');
 
 class Messages {
@@ -49,7 +50,7 @@ class Messages {
 }
 
 
-const app = feathers();
+const app = express(feathers());
 
 const validate = async context => {
 	const { data } = context;
@@ -78,7 +79,11 @@ app.use('todos', {
 	}
 });
 
+app.use(express.json());
+app.use(express.urlencoded({ extend: true }));
+app.configure(express.rest());
 app.use('messages', new Messages());
+app.use(express.errorHandler());
 
 async function getTodo(name) {
 	const service = app.service('todos');
@@ -145,3 +150,10 @@ async function processMessages() {
 
 // getTodo('dishes');
 processMessages();
+const server = app.listen(3030);
+
+app.service('messages').create({
+	text: 'Hello from the server'
+});
+
+server.on('listening', ()=> console.log('Feathers REST API started at http://localhost:3030'));
